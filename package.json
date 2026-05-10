@@ -1,0 +1,35 @@
+{
+  "name": "blog-webp-optimizer",
+  "version": "0.1.0",
+  "private": false,
+  "description": "Local localhost WebP optimizer for blog images.",
+  "scripts": {
+    "dev": "next dev -H 127.0.0.1 -p 9732",
+    "build": "next build",
+    "start": "next start -H 127.0.0.1 -p 9732",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "archiver": "^8.0.0",
+    "lucide-react": "^1.14.0",
+    "next": "^16.2.6",
+    "p-limit": "^7.3.0",
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3",
+    "sharp": "^0.34.5"
+  },
+  "devDependencies": {
+    "@types/archiver": "^7.0.0",
+    "@types/node": "^25.6.2",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.5"
+  },
+  "engines": {
+    "node": ">=22.0.0",
+    "pnpm": ">=10.0.0"
+  }
+}
