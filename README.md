@@ -11,6 +11,7 @@ Local localhost WebP conversion for blog images.
 - Auto-orients images by default
 - Strips metadata by default
 - Provides individual WebP downloads and a ZIP download
+- Optionally uploads converted WebP files to WordPress Media Library
 - Limits each job to 50 files and each file to 25MB
 - Runs locally on `127.0.0.1:9732`
 
@@ -44,6 +45,25 @@ For a production-mode local run:
 pnpm build
 pnpm start
 ```
+
+## WordPress Upload
+
+WordPress upload is optional. Conversion and downloads work without it.
+
+To enable media-library upload, create `.env.local`:
+
+```env
+WORDPRESS_URL=https://strongorange.net
+WORDPRESS_USERNAME=your-wordpress-username
+WORDPRESS_APP_PASSWORD=xxxx xxxx xxxx xxxx xxxx xxxx
+```
+
+Use a WordPress Application Password from the WordPress user profile screen.
+The password is read only by the local Next.js server and is not sent to the
+browser.
+
+For the first version, uploads go only to the WordPress Media Library. The app
+does not edit drafts, insert Gutenberg blocks, or generate alt text.
 
 ## Stop
 
