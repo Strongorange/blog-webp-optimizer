@@ -93,4 +93,9 @@ The current implementation was checked with:
 
 ## Notes
 
-This is a local tool. Images are uploaded only to the local Next.js server running on this machine. Uploaded originals and converted outputs are written under `tmp/jobs/<jobId>/input` and `tmp/jobs/<jobId>/output`; `tmp/jobs` is ignored by git. Job files expire after about one hour and the temp directory is also cleaned when the server starts.
+This is a local-first tool. Images are processed by the local Next.js server
+running on this machine, and WordPress upload happens only when explicitly
+configured and clicked. Uploaded originals and converted outputs are written
+under `tmp/jobs/<jobId>/input` and `tmp/jobs/<jobId>/output`; `tmp/jobs` is
+ignored by git. Job files expire after about one hour and the temp directory is
+also cleaned when the server starts.
