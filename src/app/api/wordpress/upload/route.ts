@@ -18,6 +18,14 @@ interface ParsedFileIds {
   hasInvalidEntry: boolean;
 }
 
+type SelectedFilesResult =
+  | {
+      files: JobFile[];
+    }
+  | {
+      error: string;
+    };
+
 function jsonError(message: string, status: number): Response {
   return Response.json({ error: message }, { status });
 }
@@ -32,13 +40,6 @@ async function readRequestBody(request: Request): Promise<UploadRequestBody | nu
   } catch {
     return null;
   }
-}
-
-function selectedDoneFiles(files: JobFile[], fileIds: string[]): JobFile[] {
-  return fileIds
-    .map((fileId) => files.find((file) => file.id === fileId))
-    .filter((file): file is JobFile => Boolean(file))
-    .filter((file) => file.status === "done");
 }
 
 function parseFileIds(fileIds: unknown[]): ParsedFileIds {
@@ -62,6 +63,25 @@ function parseFileIds(fileIds: unknown[]): ParsedFileIds {
 
 function hasDuplicateFileIds(fileIds: string[]): boolean {
   return new Set(fileIds).size !== fileIds.length;
+}
+
+function selectUploadableFiles(files: JobFile[], fileIds: string[]): SelectedFilesResult {
+  const selectedFiles: JobFile[] = [];
+
+  for (const fileId of fileIds) {
+    const file = files.find((candidate) => candidate.id === fileId);
+    if (!file) {
+      return { error: "Selected file was not found." };
+    }
+
+    if (file.status !== "done") {
+      return { error: "No converted files are ready to upload." };
+    }
+
+    selectedFiles.push(file);
+  }
+
+  return { files: selectedFiles };
 }
 
 export async function POST(request: Request) {
@@ -100,15 +120,15 @@ export async function POST(request: Request) {
     return jsonError("Job not found.", 404);
   }
 
-  const files = selectedDoneFiles(job.files, fileIds);
-  if (files.length === 0) {
-    return jsonError("No converted files are ready to upload.", 400);
+  const selectedFiles = selectUploadableFiles(job.files, fileIds);
+  if ("error" in selectedFiles) {
+    return jsonError(selectedFiles.error, 400);
   }
 
   const failedResults: WordPressUploadResult[] = [];
   const uploadFiles = [];
 
-  for (const file of files) {
+  for (const file of selectedFiles.files) {
     try {
       uploadFiles.push({
         fileId: file.id,

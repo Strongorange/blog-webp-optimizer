@@ -200,6 +200,41 @@ describe("wordpress API routes", () => {
     expect(uploadWordPressMediaFilesMock).not.toHaveBeenCalled();
   });
 
+  it("rejects unknown requested fileIds without uploading", async () => {
+    const file = jobFile({ id: "file-1", safeOutputName: "file-1.webp" });
+    await fs.mkdir(path.dirname(file.outputPath), { recursive: true });
+    await fs.writeFile(file.outputPath, "webp data");
+    const job = jobStore.create("job-1", [file], DEFAULT_OPTIONS);
+
+    const { POST } = await importUploadRoute();
+    const response = await POST(
+      uploadRequest({ jobId: job.id, fileIds: [file.id, "missing-file"] })
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      error: "Selected file was not found."
+    });
+    expect(uploadWordPressMediaFilesMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects mixed converted and unconverted fileIds without uploading", async () => {
+    const done = jobFile({ id: "file-1", safeOutputName: "file-1.webp" });
+    const queued = jobFile({ id: "file-2", status: "queued" });
+    await fs.mkdir(path.dirname(done.outputPath), { recursive: true });
+    await fs.writeFile(done.outputPath, "webp data");
+    const job = jobStore.create("job-1", [done, queued], DEFAULT_OPTIONS);
+
+    const { POST } = await importUploadRoute();
+    const response = await POST(uploadRequest({ jobId: job.id, fileIds: [done.id, queued.id] }));
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      error: "No converted files are ready to upload."
+    });
+    expect(uploadWordPressMediaFilesMock).not.toHaveBeenCalled();
+  });
+
   it("rejects duplicate fileIds without uploading", async () => {
     const file = jobFile({ id: "file-1", safeOutputName: "file-1.webp" });
     await fs.mkdir(path.dirname(file.outputPath), { recursive: true });
