@@ -35,6 +35,23 @@ describe("wordpress config", () => {
     ).toBeNull();
   });
 
+  it("rejects non-http urls", () => {
+    expect(
+      getWordPressConfig({
+        WORDPRESS_URL: "ftp://example.com",
+        WORDPRESS_USERNAME: "strongorange",
+        WORDPRESS_APP_PASSWORD: "abcd"
+      })
+    ).toBeNull();
+    expect(
+      getWordPressConfig({
+        WORDPRESS_URL: "file:///tmp/foo",
+        WORDPRESS_USERNAME: "strongorange",
+        WORDPRESS_APP_PASSWORD: "abcd"
+      })
+    ).toBeNull();
+  });
+
   it("reports whether config exists", () => {
     expect(
       hasWordPressConfig({

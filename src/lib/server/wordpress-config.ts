@@ -26,6 +26,10 @@ export function getWordPressConfig(env: WordPressEnv = process.env): WordPressCo
 
   try {
     const url = new URL(rawUrl);
+    if (url.protocol !== "http:" && url.protocol !== "https:") {
+      return null;
+    }
+
     return {
       siteUrl: url.origin,
       username,

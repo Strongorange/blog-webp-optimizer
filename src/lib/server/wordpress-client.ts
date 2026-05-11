@@ -34,7 +34,10 @@ function attachmentFilename(filename: string): string {
 
 async function readWordPressResponse(response: Response): Promise<WordPressMediaResponse> {
   try {
-    return (await response.json()) as WordPressMediaResponse;
+    const parsed: unknown = await response.json();
+    return typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)
+      ? (parsed as WordPressMediaResponse)
+      : {};
   } catch {
     return {};
   }
