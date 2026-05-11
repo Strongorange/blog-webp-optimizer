@@ -2,8 +2,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { DEFAULT_OPTIONS, TMP_JOBS_ROOT } from "@/lib/server/constants";
-import { cleanupTmpRoot } from "@/lib/server/cleanup";
+import { DEFAULT_OPTIONS } from "@/lib/server/constants";
 import { jobStore } from "@/lib/server/job-store";
 import type { JobFile } from "@/lib/server/types";
 
@@ -86,7 +85,6 @@ describe("wordpress API routes", () => {
     for (const job of jobStore.list()) {
       jobStore.remove(job.id);
     }
-    await cleanupTmpRoot();
   });
 
   afterEach(async () => {
@@ -96,7 +94,6 @@ describe("wordpress API routes", () => {
     for (const job of jobStore.list()) {
       jobStore.remove(job.id);
     }
-    await fs.rm(TMP_JOBS_ROOT, { recursive: true, force: true });
     if (routeTmpRoot) {
       await fs.rm(routeTmpRoot, { recursive: true, force: true });
     }

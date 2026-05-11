@@ -150,6 +150,7 @@ export function OptimizerApp() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const requestGenerationRef = useRef(0);
   const wordpressGenerationRef = useRef(0);
+  const wordpressUploadInFlightRef = useRef(false);
   const submitAbortRef = useRef<AbortController | null>(null);
 
   const doneFiles = useMemo(
@@ -264,6 +265,7 @@ export function OptimizerApp() {
   function invalidatePendingRequests() {
     requestGenerationRef.current += 1;
     wordpressGenerationRef.current += 1;
+    wordpressUploadInFlightRef.current = false;
     submitAbortRef.current?.abort();
     submitAbortRef.current = null;
   }
@@ -435,18 +437,26 @@ export function OptimizerApp() {
   }
 
   function uploadedUrls(): string[] {
-    return Object.values(wordpressUploads)
+    const urls = Object.values(wordpressUploads)
       .map((upload) => upload.url)
       .filter((url): url is string => Boolean(url));
+
+    return Array.from(new Set(urls));
   }
 
   async function uploadToWordPress(fileIds: string[]) {
-    if (!job || fileIds.length === 0 || isUploadingToWordPress) {
+    if (
+      !job ||
+      fileIds.length === 0 ||
+      isUploadingToWordPress ||
+      wordpressUploadInFlightRef.current
+    ) {
       return;
     }
 
     const generation = wordpressGenerationRef.current + 1;
     wordpressGenerationRef.current = generation;
+    wordpressUploadInFlightRef.current = true;
     setIsUploadingToWordPress(true);
     setWordPressError(null);
     setWordPressUploads((current) => {
@@ -540,13 +550,21 @@ export function OptimizerApp() {
       }
     } finally {
       if (wordpressGenerationRef.current === generation) {
+        wordpressUploadInFlightRef.current = false;
         setIsUploadingToWordPress(false);
       }
     }
   }
 
   async function copyText(value: string) {
-    await navigator.clipboard.writeText(value);
+    try {
+      await navigator.clipboard.writeText(value);
+      setWordPressError(null);
+    } catch (copyError) {
+      setWordPressError(
+        copyError instanceof Error ? copyError.message : "Failed to copy WordPress URL."
+      );
+    }
   }
 
   return (
@@ -791,6 +809,7 @@ export function OptimizerApp() {
                                     className="text-button"
                                     type="button"
                                     disabled={
+                                      isUploadingToWordPress ||
                                       wordpressUploads[file.id]?.status === "uploading"
                                     }
                                     onClick={() => uploadToWordPress([file.id])}
