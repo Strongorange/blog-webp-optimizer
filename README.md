@@ -45,6 +45,14 @@ pnpm build
 pnpm start
 ```
 
+## Stop
+
+Stop the local server with `Ctrl-C` in the terminal running `pnpm dev` or
+`pnpm start`.
+
+This app is intended as an on-demand localhost utility. It does not need to run
+as a long-lived service on a remote server.
+
 ## Test
 
 ```bash
