@@ -13,6 +13,11 @@ interface UploadRequestBody {
   fileIds?: unknown;
 }
 
+interface ParsedFileIds {
+  fileIds: string[];
+  hasInvalidEntry: boolean;
+}
+
 function jsonError(message: string, status: number): Response {
   return Response.json({ error: message }, { status });
 }
@@ -36,6 +41,29 @@ function selectedDoneFiles(files: JobFile[], fileIds: string[]): JobFile[] {
     .filter((file) => file.status === "done");
 }
 
+function parseFileIds(fileIds: unknown[]): ParsedFileIds {
+  const parsed: string[] = [];
+
+  for (const fileId of fileIds) {
+    if (typeof fileId !== "string") {
+      return { fileIds: [], hasInvalidEntry: true };
+    }
+
+    const trimmedFileId = fileId.trim();
+    if (!trimmedFileId) {
+      return { fileIds: [], hasInvalidEntry: true };
+    }
+
+    parsed.push(trimmedFileId);
+  }
+
+  return { fileIds: parsed, hasInvalidEntry: false };
+}
+
+function hasDuplicateFileIds(fileIds: string[]): boolean {
+  return new Set(fileIds).size !== fileIds.length;
+}
+
 export async function POST(request: Request) {
   if (!isTrustedLocalRequest(request)) {
     return jsonError("Cross-origin uploads are not allowed.", 403);
@@ -54,9 +82,17 @@ export async function POST(request: Request) {
     return jsonError("Invalid WordPress upload request.", 400);
   }
 
-  const fileIds = body.fileIds.filter((fileId): fileId is string => typeof fileId === "string");
+  const { fileIds, hasInvalidEntry } = parseFileIds(body.fileIds);
+  if (hasInvalidEntry) {
+    return jsonError("Invalid WordPress upload request.", 400);
+  }
+
   if (fileIds.length === 0) {
     return jsonError("Select at least one converted file to upload.", 400);
+  }
+
+  if (hasDuplicateFileIds(fileIds)) {
+    return jsonError("Select each converted file only once.", 400);
   }
 
   const job = jobStore.get(body.jobId);

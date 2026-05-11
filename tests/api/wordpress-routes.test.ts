@@ -6,6 +6,10 @@ import { cleanupTmpRoot } from "@/lib/server/cleanup";
 import { jobStore } from "@/lib/server/job-store";
 import type { JobFile } from "@/lib/server/types";
 
+const { uploadWordPressMediaFilesMock } = vi.hoisted(() => ({
+  uploadWordPressMediaFilesMock: vi.fn()
+}));
+
 const globalCleanup = globalThis as typeof globalThis & {
   __blogWebpOptimizerStartupCleanupPromise?: Promise<void>;
 };
@@ -45,14 +49,7 @@ async function importStatusRoute() {
 async function importUploadRoute() {
   vi.resetModules();
   vi.doMock("@/lib/server/wordpress-client", () => ({
-    uploadWordPressMediaFiles: vi.fn().mockResolvedValue([
-      {
-        fileId: "file-1",
-        status: "uploaded",
-        attachmentId: 123,
-        url: "https://strongorange.net/wp-content/uploads/file-1.webp"
-      }
-    ])
+    uploadWordPressMediaFiles: uploadWordPressMediaFilesMock
   }));
   return import("@/app/api/wordpress/upload/route");
 }
@@ -63,6 +60,15 @@ describe("wordpress API routes", () => {
     vi.stubEnv("WORDPRESS_URL", "https://strongorange.net");
     vi.stubEnv("WORDPRESS_USERNAME", "strongorange");
     vi.stubEnv("WORDPRESS_APP_PASSWORD", "abcd efgh");
+    uploadWordPressMediaFilesMock.mockReset();
+    uploadWordPressMediaFilesMock.mockResolvedValue([
+      {
+        fileId: "file-1",
+        status: "uploaded",
+        attachmentId: 123,
+        url: "https://strongorange.net/wp-content/uploads/file-1.webp"
+      }
+    ]);
     vi.doUnmock("@/lib/server/wordpress-client");
     for (const job of jobStore.list()) {
       jobStore.remove(job.id);
@@ -146,6 +152,56 @@ describe("wordpress API routes", () => {
     });
   });
 
+  it("rejects malformed fileIds without uploading", async () => {
+    const file = jobFile({ id: "file-1", safeOutputName: "file-1.webp" });
+    await fs.mkdir(path.dirname(file.outputPath), { recursive: true });
+    await fs.writeFile(file.outputPath, "webp data");
+    const job = jobStore.create("job-1", [file], DEFAULT_OPTIONS);
+
+    const { POST } = await importUploadRoute();
+    const response = await POST(
+      uploadRequest({ jobId: job.id, fileIds: ["file-1", { bad: true }] })
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      error: "Invalid WordPress upload request."
+    });
+    expect(uploadWordPressMediaFilesMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects blank fileIds after trimming without uploading", async () => {
+    const file = jobFile({ id: "file-1", safeOutputName: "file-1.webp" });
+    await fs.mkdir(path.dirname(file.outputPath), { recursive: true });
+    await fs.writeFile(file.outputPath, "webp data");
+    const job = jobStore.create("job-1", [file], DEFAULT_OPTIONS);
+
+    const { POST } = await importUploadRoute();
+    const response = await POST(uploadRequest({ jobId: job.id, fileIds: ["file-1", "  "] }));
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      error: "Invalid WordPress upload request."
+    });
+    expect(uploadWordPressMediaFilesMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects duplicate fileIds without uploading", async () => {
+    const file = jobFile({ id: "file-1", safeOutputName: "file-1.webp" });
+    await fs.mkdir(path.dirname(file.outputPath), { recursive: true });
+    await fs.writeFile(file.outputPath, "webp data");
+    const job = jobStore.create("job-1", [file], DEFAULT_OPTIONS);
+
+    const { POST } = await importUploadRoute();
+    const response = await POST(uploadRequest({ jobId: job.id, fileIds: ["file-1", "file-1"] }));
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      error: "Select each converted file only once."
+    });
+    expect(uploadWordPressMediaFilesMock).not.toHaveBeenCalled();
+  });
+
   it("returns per-file failure when an output artifact is missing", async () => {
     const file = jobFile({ id: "file-1", safeOutputName: "file-1.webp" });
     const job = jobStore.create("job-1", [file], DEFAULT_OPTIONS);
@@ -157,6 +213,36 @@ describe("wordpress API routes", () => {
       results: [
         {
           fileId: file.id,
+          status: "failed",
+          error: "Converted file not found."
+        }
+      ]
+    });
+  });
+
+  it("returns mixed upload and missing-artifact results", async () => {
+    const existing = jobFile({ id: "file-1", safeOutputName: "file-1.webp" });
+    const missing = jobFile({ id: "file-2", safeOutputName: "file-2.webp" });
+    await fs.mkdir(path.dirname(existing.outputPath), { recursive: true });
+    await fs.writeFile(existing.outputPath, "webp data");
+    const job = jobStore.create("job-1", [existing, missing], DEFAULT_OPTIONS);
+
+    const { POST } = await importUploadRoute();
+    const response = await POST(
+      uploadRequest({ jobId: job.id, fileIds: [existing.id, missing.id] })
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      results: [
+        {
+          fileId: "file-1",
+          status: "uploaded",
+          attachmentId: 123,
+          url: "https://strongorange.net/wp-content/uploads/file-1.webp"
+        },
+        {
+          fileId: "file-2",
           status: "failed",
           error: "Converted file not found."
         }
@@ -184,5 +270,18 @@ describe("wordpress API routes", () => {
         }
       ]
     });
+    expect(uploadWordPressMediaFilesMock).toHaveBeenCalledTimes(1);
+    const [config, uploadFiles] = uploadWordPressMediaFilesMock.mock.calls[0];
+    expect(config).toEqual({
+      siteUrl: "https://strongorange.net",
+      username: "strongorange",
+      appPassword: "abcdefgh"
+    });
+    expect(uploadFiles).toHaveLength(1);
+    expect(uploadFiles[0]).toMatchObject({
+      fileId: "file-1",
+      filename: "file-1.webp"
+    });
+    expect(uploadFiles[0].buffer.toString()).toBe("webp data");
   });
 });
