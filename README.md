@@ -57,7 +57,7 @@ pnpm build
 
 The current implementation was checked with:
 
-- `pnpm test`: 10 files and 40 tests passed
+- `pnpm test`: 10 files and 46 tests passed
 - `pnpm typecheck`: passed
 - `pnpm build`: passed
 - `curl -I http://127.0.0.1:9732`: returned `HTTP/1.1 200 OK`

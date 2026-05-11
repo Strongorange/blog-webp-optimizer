@@ -2,7 +2,6 @@ import { randomUUID } from "node:crypto";
 import path from "node:path";
 import {
   ACCEPTED_EXTENSIONS,
-  ACCEPTED_MIME_TYPES,
   MAX_BYTES_PER_FILE,
   MAX_FILES_PER_JOB
 } from "@/lib/server/constants";
@@ -11,6 +10,7 @@ import { uniqueOutputNames } from "@/lib/server/filenames";
 import { processJobSafely } from "@/lib/server/job-runner";
 import { jobStore } from "@/lib/server/job-store";
 import { parseConversionOptions } from "@/lib/server/options";
+import { isTrustedLocalRequest } from "@/lib/server/request-guard";
 import { ensureJobDirs, removeJobDir, writeUploadedFile } from "@/lib/server/storage";
 import type { JobFile } from "@/lib/server/types";
 
@@ -25,6 +25,10 @@ function isFile(value: FormDataEntryValue): value is File {
 }
 
 export async function POST(request: Request) {
+  if (!isTrustedLocalRequest(request)) {
+    return jsonError("Cross-origin uploads are not allowed.", 403);
+  }
+
   await runStartupCleanupOnce();
 
   const formData = await request.formData();
@@ -40,7 +44,7 @@ export async function POST(request: Request) {
 
   for (const file of uploads) {
     const extension = path.extname(file.name).toLowerCase();
-    if (!ACCEPTED_EXTENSIONS.has(extension) || !ACCEPTED_MIME_TYPES.has(file.type)) {
+    if (!ACCEPTED_EXTENSIONS.has(extension)) {
       return jsonError(`Unsupported file type: ${file.name}`, 400);
     }
 

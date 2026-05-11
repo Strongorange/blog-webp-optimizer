@@ -2,6 +2,7 @@ import fs from "node:fs/promises";
 import { TMP_JOBS_ROOT } from "./constants";
 import { jobStore } from "./job-store";
 import { removeJobDir } from "./storage";
+import type { JobRecord } from "./types";
 
 const globalCleanup = globalThis as typeof globalThis & {
   __blogWebpOptimizerStartupCleanupPromise?: Promise<void>;
@@ -9,11 +10,15 @@ const globalCleanup = globalThis as typeof globalThis & {
 
 export async function cleanupExpiredJobs(now = Date.now()): Promise<void> {
   for (const job of jobStore.list()) {
-    if (job.expiresAt <= now) {
+    if (job.expiresAt <= now && !isActiveJob(job)) {
       await removeJobDir(job.id);
       jobStore.remove(job.id);
     }
   }
+}
+
+function isActiveJob(job: JobRecord): boolean {
+  return job.status === "queued" || job.status === "processing";
 }
 
 export async function cleanupTmpRoot(): Promise<void> {

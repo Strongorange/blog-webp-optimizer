@@ -170,9 +170,10 @@ describe("download API routes", () => {
     expect(response.status).toBe(200);
     expect(response.headers.get("Content-Type")).toBe("application/zip");
     expect(response.headers.get("Content-Disposition")).toBe('attachment; filename="blog-webp-job-1.zip"');
-    expect(Number(response.headers.get("Content-Length"))).toBeGreaterThan(20);
+    expect(response.headers.get("Content-Length")).toBeNull();
 
     const zip = await responseLatin1(response);
+    expect(zip.length).toBeGreaterThan(20);
     expect(zip).toContain("done.webp");
     expect(zip).not.toContain("failed.webp");
   });

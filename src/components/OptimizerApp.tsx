@@ -17,9 +17,9 @@ import { formatBytes, formatReduction } from "@/lib/client/format";
 
 const ACCEPTED_INPUT =
   ".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp";
-const ACCEPTED_MIME_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 const ACCEPTED_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp"];
 const MAX_FILES = 50;
+const MAX_BYTES_PER_FILE = 25 * 1024 * 1024;
 const POLL_MS = 800;
 
 type FileStatus = "queued" | "processing" | "done" | "failed";
@@ -62,17 +62,9 @@ const DEFAULT_OPTIONS: OptionsState = {
   concurrency: ""
 };
 
-function fileIsAccepted(file: File): boolean {
+function hasAcceptedExtension(file: File): boolean {
   const name = file.name.toLowerCase();
-  const hasAcceptedExtension = ACCEPTED_EXTENSIONS.some((extension) =>
-    name.endsWith(extension)
-  );
-
-  return (
-    hasAcceptedExtension &&
-    file.type !== "" &&
-    ACCEPTED_MIME_TYPES.has(file.type)
-  );
+  return ACCEPTED_EXTENSIONS.some((extension) => name.endsWith(extension));
 }
 
 function isActiveJob(status: JobStatus): boolean {
@@ -224,10 +216,13 @@ export function OptimizerApp() {
     const rejected: string[] = [];
 
     for (const file of incomingFiles) {
-      if (fileIsAccepted(file)) {
-        accepted.push(file);
+      const fileName = file.name || "Untitled file";
+      if (!hasAcceptedExtension(file)) {
+        rejected.push(fileName);
+      } else if (file.size > MAX_BYTES_PER_FILE) {
+        rejected.push(`${fileName} (larger than 25MB)`);
       } else {
-        rejected.push(file.name || "Untitled file");
+        accepted.push(file);
       }
     }
 
@@ -423,8 +418,8 @@ export function OptimizerApp() {
             <div>
               <h2>Drop images here or choose files</h2>
               <p>
-                JPG, PNG, and WebP files with matching browser MIME type. Up to{" "}
-                {MAX_FILES} files per job.
+                JPG, PNG, and WebP files. Up to {MAX_FILES} files per job, 25MB
+                per file.
               </p>
             </div>
           </label>

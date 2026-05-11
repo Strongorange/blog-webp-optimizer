@@ -2,7 +2,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { MissingOutputArtifactError, createZipBuffer } from "@/lib/server/zip";
+import { MissingOutputArtifactError, createZipBuffer, createZipStream } from "@/lib/server/zip";
 import type { JobFile } from "@/lib/server/types";
 
 let tempDir: string;
@@ -48,5 +48,21 @@ describe("createZipBuffer", () => {
     vi.spyOn(fs, "access").mockResolvedValue(undefined);
 
     await expect(createZipBuffer([done])).rejects.toBeInstanceOf(MissingOutputArtifactError);
+  });
+});
+
+describe("createZipStream", () => {
+  it("streams successful output files only", async () => {
+    const done = jobFile("done", "done", "done.webp");
+    const failed = jobFile("failed", "failed", "failed.webp");
+    await fs.writeFile(done.outputPath, Buffer.from("webp data"));
+    await fs.writeFile(failed.outputPath, Buffer.from("bad data"));
+
+    const stream = await createZipStream([done, failed]);
+    const zip = Buffer.from(await new Response(stream).arrayBuffer());
+
+    expect(zip.length).toBeGreaterThan(20);
+    expect(zip.toString("latin1")).toContain("done.webp");
+    expect(zip.toString("latin1")).not.toContain("failed.webp");
   });
 });

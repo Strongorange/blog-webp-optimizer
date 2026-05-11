@@ -23,10 +23,11 @@ function formDataWithFiles(files: File[]): FormData {
   return formData;
 }
 
-function postRequest(formData: FormData): Request {
+function postRequest(formData: FormData, headers?: HeadersInit): Request {
   return new Request("http://localhost/api/jobs", {
     method: "POST",
-    body: formData
+    body: formData,
+    headers
   });
 }
 
@@ -81,13 +82,53 @@ describe("jobs API routes", () => {
     await fs.rm(TMP_JOBS_ROOT, { recursive: true, force: true });
   });
 
-  it("rejects unsupported extension and MIME uploads with 400", async () => {
+  it("rejects unsupported extensions with 400", async () => {
     const { POST } = await importPostRoute();
     const response = await POST(postRequest(formDataWithFiles([imageFile("reef.gif", "image/gif")])));
 
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toEqual({
       error: "Unsupported file type: reef.gif"
+    });
+  });
+
+  it("rejects cross-origin browser uploads before staging files", async () => {
+    const { POST } = await importPostRoute();
+    const response = await POST(
+      postRequest(formDataWithFiles([imageFile("reef.jpg", "image/jpeg")]), {
+        Origin: "https://example.com"
+      })
+    );
+
+    expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toEqual({
+      error: "Cross-origin uploads are not allowed."
+    });
+  });
+
+  it("rejects cross-site fetch metadata uploads", async () => {
+    const { POST } = await importPostRoute();
+    const response = await POST(
+      postRequest(formDataWithFiles([imageFile("reef.jpg", "image/jpeg")]), {
+        "Sec-Fetch-Site": "cross-site"
+      })
+    );
+
+    expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toEqual({
+      error: "Cross-origin uploads are not allowed."
+    });
+  });
+
+  it("accepts supported image extensions without trusting browser MIME detection", async () => {
+    const { POST } = await importPostRoute();
+    const response = await POST(postRequest(formDataWithFiles([imageFile("reef.jpg", "")])));
+
+    expect(response.status).toBe(202);
+    const body = await response.json();
+    expect(body.files[0]).toMatchObject({
+      originalName: "reef.jpg",
+      safeOutputName: "reef.webp"
     });
   });
 

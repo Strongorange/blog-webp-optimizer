@@ -1,6 +1,6 @@
 import { cleanupExpiredJobs, runStartupCleanupOnce } from "@/lib/server/cleanup";
 import { jobStore } from "@/lib/server/job-store";
-import { MissingOutputArtifactError, createZipBuffer } from "@/lib/server/zip";
+import { MissingOutputArtifactError, createZipStream } from "@/lib/server/zip";
 
 export const runtime = "nodejs";
 
@@ -20,9 +20,9 @@ export async function GET(_request: Request, { params }: { params: Promise<{ job
     return Response.json({ error: "No converted files are ready." }, { status: 404 });
   }
 
-  let buffer: Buffer;
+  let stream: ReadableStream<Uint8Array>;
   try {
-    buffer = await createZipBuffer(successfulFiles);
+    stream = await createZipStream(successfulFiles);
   } catch (error) {
     if (error instanceof MissingOutputArtifactError) {
       return Response.json({ error: "Converted file not found." }, { status: 404 });
@@ -31,10 +31,9 @@ export async function GET(_request: Request, { params }: { params: Promise<{ job
     throw error;
   }
 
-  return new Response(new Uint8Array(buffer), {
+  return new Response(stream, {
     headers: {
       "Content-Type": "application/zip",
-      "Content-Length": String(buffer.byteLength),
       "Content-Disposition": `attachment; filename="blog-webp-${job.id}.zip"`
     }
   });
