@@ -247,6 +247,17 @@ p {
   background: var(--surface-muted);
 }
 
+.ghost-button {
+  border: 0;
+  background: transparent;
+  color: var(--accent-strong);
+  font: inherit;
+  font-weight: 700;
+  padding: 0;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
 .icon-button {
   width: 34px;
   min-width: 34px;
@@ -462,6 +473,39 @@ tbody tr:last-child td {
 
 .text-link:hover {
   text-decoration: underline;
+}
+
+.result-actions,
+.wordpress-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.wordpress-actions {
+  margin-top: 8px;
+}
+
+.text-button {
+  border: 0;
+  background: transparent;
+  color: var(--accent);
+  font: inherit;
+  font-weight: 700;
+  padding: 0;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.text-button:disabled {
+  color: var(--muted);
+  cursor: wait;
+  text-decoration: none;
+}
+
+.copy-urls-button {
+  margin-bottom: 12px;
 }
 
 .spin {
