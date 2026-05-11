@@ -239,6 +239,10 @@ export function OptimizerApp() {
     async function loadWordPressStatus() {
       try {
         const response = await fetch("/api/wordpress/status", { cache: "no-store" });
+        if (!response.ok) {
+          throw new Error(`WordPress status failed with ${response.status}.`);
+        }
+
         const nextStatus = (await response.json()) as WordPressStatus;
         if (!cancelled) {
           setWordPressStatus(nextStatus);
@@ -485,11 +489,20 @@ export function OptimizerApp() {
         return;
       }
 
-      const results = (payload.results ?? []) as WordPressUploadResult[];
+      const results = Array.isArray(payload.results)
+        ? (payload.results as WordPressUploadResult[])
+        : [];
       setWordPressUploads((current) => {
         const next = { ...current };
+        const remainingFileIds = new Set(fileIds);
+
         for (const result of results) {
-          if (result.status === "uploaded" && result.attachmentId && result.url) {
+          remainingFileIds.delete(result.fileId);
+          if (
+            result.status === "uploaded" &&
+            typeof result.attachmentId === "number" &&
+            result.url
+          ) {
             next[result.fileId] = {
               status: "uploaded",
               attachmentId: result.attachmentId,
@@ -502,6 +515,14 @@ export function OptimizerApp() {
             };
           }
         }
+
+        for (const fileId of remainingFileIds) {
+          next[fileId] = {
+            status: "failed",
+            error: "WordPress upload returned no result."
+          };
+        }
+
         return next;
       });
     } catch (uploadError) {

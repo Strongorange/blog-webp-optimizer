@@ -1,4 +1,5 @@
 import fs from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DEFAULT_OPTIONS, TMP_JOBS_ROOT } from "@/lib/server/constants";
@@ -14,17 +15,28 @@ const globalCleanup = globalThis as typeof globalThis & {
   __blogWebpOptimizerStartupCleanupPromise?: Promise<void>;
 };
 
+let routeTmpRoot = "";
+
+function currentRouteTmpRoot(): string {
+  if (!routeTmpRoot) {
+    throw new Error("Route test temp root has not been initialized.");
+  }
+
+  return routeTmpRoot;
+}
+
 function jobFile(overrides: Partial<JobFile> = {}): JobFile {
   const id = overrides.id ?? "file-1";
   const safeOutputName = overrides.safeOutputName ?? `${id}.webp`;
+  const root = currentRouteTmpRoot();
   return {
     id,
     originalName: `${id}.jpg`,
     safeOutputName,
     mimeType: "image/jpeg",
     inputBytes: 1000,
-    inputPath: path.join(TMP_JOBS_ROOT, "job-1", "input", `${id}.jpg`),
-    outputPath: path.join(TMP_JOBS_ROOT, "job-1", "output", safeOutputName),
+    inputPath: path.join(root, "job-1", "input", `${id}.jpg`),
+    outputPath: path.join(root, "job-1", "output", safeOutputName),
     status: "done",
     ...overrides
   };
@@ -57,6 +69,7 @@ async function importUploadRoute() {
 describe("wordpress API routes", () => {
   beforeEach(async () => {
     globalCleanup.__blogWebpOptimizerStartupCleanupPromise = Promise.resolve();
+    routeTmpRoot = await fs.mkdtemp(path.join(os.tmpdir(), "blog-webp-wordpress-routes-"));
     vi.stubEnv("WORDPRESS_URL", "https://strongorange.net");
     vi.stubEnv("WORDPRESS_USERNAME", "strongorange");
     vi.stubEnv("WORDPRESS_APP_PASSWORD", "abcd efgh");
@@ -84,6 +97,10 @@ describe("wordpress API routes", () => {
       jobStore.remove(job.id);
     }
     await fs.rm(TMP_JOBS_ROOT, { recursive: true, force: true });
+    if (routeTmpRoot) {
+      await fs.rm(routeTmpRoot, { recursive: true, force: true });
+    }
+    routeTmpRoot = "";
   });
 
   it("returns configured wordpress status without secrets", async () => {
