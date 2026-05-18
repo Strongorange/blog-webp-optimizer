@@ -1,0 +1,17 @@
+[Unit]
+Description=Blog WebP Optimizer
+Wants=network-online.target tailscaled.service
+After=network-online.target tailscaled.service
+
+[Service]
+Type=simple
+User=YOUR_LINUX_USER
+WorkingDirectory=/absolute/path/to/blog-webp-optimizer
+Environment=NODE_ENV=production
+Environment=PATH=/absolute/path/to/node/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+ExecStart=/bin/bash -lc 'exec /absolute/path/to/node/bin/pnpm exec next start -H "$(/usr/bin/tailscale ip -4)" -p 9732'
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
